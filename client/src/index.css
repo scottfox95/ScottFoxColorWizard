@@ -1,0 +1,215 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Inter:wght@300;400;500;600&family=Dancing+Script:wght@400;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+
+  /* Magic theme colors */
+  --magic-purple: hsl(259, 54%, 54%);
+  --magic-blue: hsl(217, 91%, 60%);
+  --magic-gold: hsl(38, 92%, 50%);
+  --magic-green: hsl(158, 64%, 52%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom font families */
+.font-fredoka {
+  font-family: 'Fredoka One', cursive;
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-script {
+  font-family: 'Dancing Script', cursive;
+}
+
+/* Magic theme colors */
+.text-magic-purple {
+  color: var(--magic-purple);
+}
+
+.text-magic-blue {
+  color: var(--magic-blue);
+}
+
+.text-magic-gold {
+  color: var(--magic-gold);
+}
+
+.text-magic-green {
+  color: var(--magic-green);
+}
+
+.bg-magic-purple {
+  background-color: var(--magic-purple);
+}
+
+.bg-magic-blue {
+  background-color: var(--magic-blue);
+}
+
+.bg-magic-gold {
+  background-color: var(--magic-gold);
+}
+
+.bg-magic-green {
+  background-color: var(--magic-green);
+}
+
+.border-magic-purple {
+  border-color: var(--magic-purple);
+}
+
+.border-magic-blue {
+  border-color: var(--magic-blue);
+}
+
+.border-magic-gold {
+  border-color: var(--magic-gold);
+}
+
+.border-magic-green {
+  border-color: var(--magic-green);
+}
+
+/* Custom magical styles */
+.magic-gradient {
+  background: linear-gradient(135deg, hsl(248, 53%, 98%) 0%, hsl(239, 84%, 95%) 50%, hsl(300, 76%, 96%) 100%);
+}
+
+.sparkle-border {
+  background: linear-gradient(45deg, var(--magic-purple), var(--magic-blue), var(--magic-gold), var(--magic-purple));
+  background-size: 400% 400%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.glow-effect {
+  box-shadow: 0 0 20px hsla(259, 54%, 54%, 0.3);
+}
+
+.upload-zone {
+  background: linear-gradient(45deg, hsla(259, 54%, 54%, 0.1), hsla(217, 91%, 60%, 0.1));
+  border: 2px dashed var(--magic-purple);
+  transition: all 0.3s ease;
+}
+
+.upload-zone:hover {
+  background: linear-gradient(45deg, hsla(259, 54%, 54%, 0.2), hsla(217, 91%, 60%, 0.2));
+  border-color: var(--magic-gold);
+  transform: scale(1.02);
+}
+
+.magic-button {
+  background: linear-gradient(45deg, var(--magic-purple), var(--magic-blue));
+  transition: all 0.3s ease;
+}
+
+.magic-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px hsla(259, 54%, 54%, 0.4);
+}
+
+.scale-102 {
+  transform: scale(1.02);
+}
+
+/* Custom animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Additional utility classes for animations */
+.animate-sparkle {
+  animation: sparkle 2s infinite;
+}
+
+.animate-bounce-gentle {
+  animation: bounceGentle 1.5s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { 
+    transform: scale(1) rotate(0deg); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: scale(1.2) rotate(180deg); 
+    opacity: 0.8; 
+  }
+}
+
+@keyframes bounceGentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
