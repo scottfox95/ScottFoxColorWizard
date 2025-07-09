@@ -1,0 +1,91 @@
+######## 1 — Dependencies (one-off) ########
+npm uninstall openai          # remove any pre-1.x versions
+npm install openai@latest     # >= 1.5.0 has the tool-call helpers
+npm install sharp mime-types  # sharp = resize; mime-types = safety
+diff
+Copy
+Edit
+######## 2 — server/routes.ts (ENTIRE FILE) ########
++import { Router } from "express";
++import multer from "multer";
++import mime from "mime-types";
++import sharp from "sharp";
++import OpenAI from "openai";
++
++const router = Router();
++const upload = multer({ storage: multer.memoryStorage() });
++const openai = new OpenAI();
++
++// POST /api/generate-coloring-page
++router.post("/generate-coloring-page", upload.single("image"), async (req, res) => {
++  try {
++    if (!req.file) return res.status(400).json({ error: "No image uploaded" });
++
++    /* 2-a  Resize to 1024 px (4-o’s sweet spot) – keeps tokens & cost down */
++    const buffer = await sharp(req.file.buffer)
++      .resize({ width: 1024, withoutEnlargement: true })
++      .toBuffer();
++
++    const mimeType = mime.lookup(req.file.originalname) || "image/jpeg";
++    const base64   = buffer.toString("base64");
++    const dataUrl  = `data:${mimeType};base64,${base64}`;
++
++    /* 2-b  One single Chat Completions call with an image_generation tool */
++    const response = await openai.chat.completions.create({
++      model: process.env.IMAGE_MODEL || "gpt-4o",
++      temperature: 0.2,                       // stay faithful to photo
++      messages: [
++        {
++          role: "user",
++          content: [
++            {
++              type: "text",
++              text:
++                "Create a black and white line drawing for a kids’ coloring book " +
++                "based on this photo. Keep the details simple and clean using clear " +
++                "outlines, but preserve the recognizable features of the people, setting, " +
++                "and background elements. Make it child-friendly and suitable for coloring, " +
++                "similar to a cartoon or coloring book page."
++            },
++            { type: "image_url", image_url: { url: dataUrl } }
++          ]
++        }
++      ],
++      tools: [
++        {
++          type: "image_generation",
++          parameters: {
++            style:   "line-art",
++            size:    "1024x1024",
++            quality: "standard"
++          }
++        }
++      ],
++      tool_choice: "auto"
++    });
++
++    /* 2-c  The generated image URL is returned inside the tool call */
++    const toolCall = response.choices[0].message.tool_calls?.[0];
++    const imageUrl = toolCall?.image_generation?.url;
++
++    if (!imageUrl)
++      return res.status(500).json({ error: "Image generation failed" });
++
++    res.json({ url: imageUrl });
++  } catch (err) {
++    console.error(err);
++    res.status(500).json({ error: "Server error" });
++  }
++});
++
++export default router;
+md
+Copy
+Edit
+######## 3 — replit.md (append to end) ########
+### 🔄 Model selection
+| Env var | Default | What it does |
+|---------|---------|--------------|
+| `IMAGE_MODEL` | `gpt-4o` | Controls which model the coloring-page route uses. **Do not** set to `dall-e-*` or `gpt-*-turbo`, as those follow a different API and will break the tool call. |
+
+The project now relies *only* on the Chat Completions endpoint and **never** on legacy `images.generate` or `completions` calls. If the agent later adds new routes, remind it to reuse this pattern.
