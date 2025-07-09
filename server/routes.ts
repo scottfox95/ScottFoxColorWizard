@@ -76,8 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Background function to process image generation
   async function processImageGeneration(requestId: number, imageBase64: string) {
     try {
-      // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-      // First, use GPT-4o to analyze the image and create a detailed prompt
+      // Use GPT-4o to analyze the image and create a detailed prompt for the coloring page generation
       const visionResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -105,13 +104,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create enhanced prompt based on the analysis
       const enhancedPrompt = `Create a black and white line drawing for a kids' coloring book based on this description: ${imageAnalysis}. Keep the details simple and clean using clear outlines, but preserve the recognizable features of the people, setting, and background elements. Make it child-friendly and suitable for coloring, similar to a cartoon or coloring book page. Use bold, clear lines that are easy for children to color within.`;
 
-      // Then use DALL-E 3 to generate the coloring page
+      // Then use the latest gpt-image-1 model to generate the coloring page
       const response = await openai.images.generate({
-        model: "dall-e-3",
+        model: "gpt-image-1",
         prompt: enhancedPrompt,
         n: 1,
         size: "1024x1024",
-        quality: "standard",
+        quality: "hd",
       });
 
       const generatedImageUrl = response.data?.[0]?.url;

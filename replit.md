@@ -8,6 +8,10 @@ This is a full-stack web application that transforms user-uploaded images into m
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+- **January 2025**: Updated to use OpenAI's latest gpt-image-1 model for improved image generation quality and better text rendering in coloring pages (replacing DALL-E 3)
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -22,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework
 - **Language**: TypeScript with ES modules
-- **API Integration**: OpenAI API for image-to-coloring-page conversion
+- **API Integration**: OpenAI API for image-to-coloring-page conversion using gpt-image-1 model
 - **File Upload**: Multer middleware for handling multipart form data
 - **Development**: Hot reloading with Vite integration in development mode
 
@@ -71,7 +75,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Core Dependencies
-- **OpenAI API**: Image processing and coloring page generation
+- **OpenAI API**: Image processing and coloring page generation using gpt-image-1 (latest model)
 - **Neon Database**: Serverless PostgreSQL hosting
 - **Radix UI**: Accessible component primitives
 - **Framer Motion**: Animation library
