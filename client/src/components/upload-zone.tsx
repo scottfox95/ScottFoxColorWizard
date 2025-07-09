@@ -27,7 +27,9 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
   const convertImageToJPEG = (file: File) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    const img = new Image();
+    const img = document.createElement('img');
+    
+    const objectUrl = URL.createObjectURL(file);
     
     img.onload = () => {
       canvas.width = img.width;
@@ -39,15 +41,17 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
           const convertedFile = new File([blob], 'converted-image.jpg', { type: 'image/jpeg' });
           onFileSelect(convertedFile);
         }
+        URL.revokeObjectURL(objectUrl);
       }, 'image/jpeg', 0.9);
     };
     
     img.onerror = () => {
       console.error('Failed to convert image format');
       alert('❌ This image format cannot be converted. Please try uploading a JPG, PNG, GIF, or WebP image instead.');
+      URL.revokeObjectURL(objectUrl);
     };
     
-    img.src = URL.createObjectURL(file);
+    img.src = objectUrl;
   };
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
