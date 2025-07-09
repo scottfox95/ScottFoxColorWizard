@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Image, Plus } from "lucide-react";
 import SparkleDecoration from "./sparkle-decoration";
 import { Star, Sparkles } from "lucide-react";
+import heic2any from "heic2any";
 
 interface UploadZoneProps {
   onFileSelect: (file: File) => void;
@@ -12,59 +13,66 @@ interface UploadZoneProps {
 export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const validateAndProcessFile = (file: File) => {
+  const validateAndProcessFile = async (file: File) => {
     const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     
     if (!supportedFormats.includes(file.type)) {
-      // Try to convert HEIC and other unsupported formats
-      convertImageToJPEG(file);
+      // Check if it's a HEIC file (iPhone format)
+      const isHEIC = file.type === 'image/heic' || file.type === 'image/heif' || 
+                    file.name.toLowerCase().endsWith('.heic') || 
+                    file.name.toLowerCase().endsWith('.heif');
+      
+      if (isHEIC) {
+        await convertHEICToJPEG(file);
+      } else {
+        alert('✨ This image format is not supported. Please use JPG, PNG, GIF, WebP, or HEIC formats.');
+      }
       return;
     }
     
     onFileSelect(file);
   };
 
-  const convertImageToJPEG = (file: File) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = document.createElement('img');
-    
-    const objectUrl = URL.createObjectURL(file);
-    
-    img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx?.drawImage(img, 0, 0);
+  const convertHEICToJPEG = async (file: File) => {
+    try {
+      console.log('Converting HEIC file to JPEG...');
       
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const convertedFile = new File([blob], 'converted-image.jpg', { type: 'image/jpeg' });
-          onFileSelect(convertedFile);
-        }
-        URL.revokeObjectURL(objectUrl);
-      }, 'image/jpeg', 0.9);
-    };
-    
-    img.onerror = () => {
-      console.error('Failed to convert image format');
-      alert('❌ This image format cannot be converted. Please try uploading a JPG, PNG, GIF, or WebP image instead.');
-      URL.revokeObjectURL(objectUrl);
-    };
-    
-    img.src = objectUrl;
+      // Convert HEIC to JPEG using heic2any
+      const convertedBlob = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.9
+      });
+      
+      // Handle the case where heic2any returns an array
+      const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+      
+      // Create a new File from the converted blob
+      const convertedFile = new File([blob], 'converted-image.jpg', { 
+        type: 'image/jpeg',
+        lastModified: Date.now()
+      });
+      
+      console.log('HEIC conversion successful!');
+      onFileSelect(convertedFile);
+      
+    } catch (error) {
+      console.error('HEIC conversion failed:', error);
+      alert('❌ Failed to convert HEIC image. Please try saving it as JPG first or use a different photo.');
+    }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       const file = files[0];
-      if (file.type.startsWith('image/')) {
-        validateAndProcessFile(file);
+      if (file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+        await validateAndProcessFile(file);
       } else {
-        alert('✨ Please upload an image file! We support JPG, PNG, GIF, and WebP formats.');
+        alert('✨ Please upload an image file! We support JPG, PNG, GIF, WebP, and HEIC formats.');
       }
     }
   }, [onFileSelect]);
@@ -79,21 +87,21 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
     setIsDragOver(false);
   }, []);
 
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      validateAndProcessFile(files[0]);
+      await validateAndProcessFile(files[0]);
     }
   }, [onFileSelect]);
 
   const handleClick = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
+    input.accept = 'image/*,.heic,.heif';
+    input.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (files && files.length > 0) {
-        validateAndProcessFile(files[0]);
+        await validateAndProcessFile(files[0]);
       }
     };
     input.click();
@@ -141,7 +149,7 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
         </p>
         {!isUploading && (
           <p className="font-inter text-xs text-gray-400 mb-4">
-            Supports: JPG, PNG, GIF, WebP • We'll convert HEIC automatically ✨
+            Supports: JPG, PNG, GIF, WebP, HEIC • iPhone photos converted automatically ✨
           </p>
         )}
         {!isUploading && (
