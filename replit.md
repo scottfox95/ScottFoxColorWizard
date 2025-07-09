@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+- **July 2025**: Switched from Image API to Responses API to match ChatGPT's multimodal approach - now processes uploaded images and text prompts together for more accurate results
 - **January 2025**: Updated to use OpenAI's latest gpt-image-1 model for improved image generation quality and better text rendering in coloring pages (replacing DALL-E 3)
 
 ## System Architecture
@@ -26,7 +27,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework
 - **Language**: TypeScript with ES modules
-- **API Integration**: OpenAI API for image-to-coloring-page conversion using gpt-image-1 model
+- **API Integration**: OpenAI Responses API for multimodal image generation - processes both uploaded images and text prompts together like ChatGPT
 - **File Upload**: Multer middleware for handling multipart form data
 - **Development**: Hot reloading with Vite integration in development mode
 
@@ -75,7 +76,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Core Dependencies
-- **OpenAI API**: Image processing and coloring page generation using gpt-image-1 (latest model)
+- **OpenAI Responses API**: Multimodal image processing and coloring page generation using gpt-4.1-mini with image generation tools
 - **Neon Database**: Serverless PostgreSQL hosting
 - **Radix UI**: Accessible component primitives
 - **Framer Motion**: Animation library

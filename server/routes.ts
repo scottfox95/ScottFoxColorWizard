@@ -76,48 +76,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Background function to process image generation
   async function processImageGeneration(requestId: number, imageBase64: string) {
     try {
-      // Use GPT-4o to analyze the image and create a detailed prompt for the coloring page generation
-      const visionResponse = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
+      // Use the Responses API with image generation tool - this mimics how ChatGPT works
+      // It can process both the uploaded image AND your text prompt together
+      const userPrompt = "Create a black and white line drawing for a kids' coloring book based on this photo. Keep the details simple and clean using clear outlines, but preserve the recognizable features of the people, setting, and background elements. Make it child-friendly and suitable for coloring, similar to a cartoon or coloring book page.";
+
+      const response = await openai.responses.create({
+        model: "gpt-4.1-mini",
+        input: [
           {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analyze this image and describe the key elements, people, objects, and setting that should be preserved in a children's coloring book version. Focus on the main subjects and recognizable features."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`
-                }
-              }
-            ],
+            type: "text",
+            text: userPrompt
           },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${imageBase64}`
+            }
+          }
         ],
-        max_tokens: 300,
+        tools: [{ type: "image_generation" }],
       });
 
-      const imageAnalysis = visionResponse.choices[0].message.content;
-      
-      // Create enhanced prompt based on the analysis
-      const enhancedPrompt = `Create a black and white line drawing for a kids' coloring book based on this description: ${imageAnalysis}. Keep the details simple and clean using clear outlines, but preserve the recognizable features of the people, setting, and background elements. Make it child-friendly and suitable for coloring, similar to a cartoon or coloring book page. Use bold, clear lines that are easy for children to color within.`;
+      // Extract the generated image from the Responses API output
+      const imageData = response.output
+        .filter((output) => output.type === "image_generation_call")
+        .map((output) => output.result);
 
-      // Then use the latest gpt-image-1 model to generate the coloring page
-      const response = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: enhancedPrompt,
-        n: 1,
-        size: "1024x1024",
-        quality: "hd",
-      });
-
-      const generatedImageUrl = response.data?.[0]?.url;
+      let generatedImageUrl = "";
+      if (imageData.length > 0) {
+        // Convert base64 to data URL for storage
+        const imageBase64 = imageData[0];
+        generatedImageUrl = `data:image/png;base64,${imageBase64}`;
+      }
 
       // Update the request with the generated image
       await storage.updateColoringRequest(requestId, {
-        coloringPageUrl: generatedImageUrl || "",
+        coloringPageUrl: generatedImageUrl,
         status: "completed"
       });
 
