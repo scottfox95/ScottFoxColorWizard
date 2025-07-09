@@ -10,7 +10,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-- **July 2025**: Switched from Image API to Responses API to match ChatGPT's multimodal approach - now processes uploaded images and text prompts together for more accurate results
+- **July 2025**: Modernized OpenAI integration to use Chat Completions API with image_generation tools instead of legacy DALL-E API calls. This provides better multimodal processing and matches ChatGPT's approach for more accurate coloring page generation.
+- **July 2025**: Added Sharp image processing for optimal 1024px resizing to reduce API costs and improve processing speed
 - **January 2025**: Updated to use OpenAI's latest gpt-image-1 model for improved image generation quality and better text rendering in coloring pages (replacing DALL-E 3)
 
 ## System Architecture
@@ -103,3 +104,10 @@ Preferred communication style: Simple, everyday language.
 - **Production**: Serves static files through Express with PostgreSQL persistence
 
 The application is designed for deployment on platforms that support Node.js with environment variable configuration, with particular optimization for Replit's hosting environment.
+
+### 🔄 Model selection
+| Env var | Default | What it does |
+|---------|---------|--------------|
+| `IMAGE_MODEL` | `gpt-4o` | Controls which model the coloring-page route uses. **Do not** set to `dall-e-*` or `gpt-*-turbo`, as those follow a different API and will break the tool call. |
+
+The project now relies *only* on the Chat Completions endpoint and **never** on legacy `images.generate` or `completions` calls. If the agent later adds new routes, remind it to reuse this pattern.

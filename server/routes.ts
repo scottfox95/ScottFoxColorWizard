@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { uploadSchema, insertColoringRequestSchema } from "@shared/schema";
 import OpenAI from "openai";
 import multer from "multer";
+import mime from "mime-types";
+import sharp from "sharp";
 
 // Extend Request type to include file property
 interface MulterRequest extends Request {
@@ -76,56 +78,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Background function to process image generation
   async function processImageGeneration(requestId: number, imageBase64: string, mimetype: string) {
     try {
-      // Use GPT-4o vision to analyze the image and create a detailed prompt for DALL-E
-      const analysisPrompt = "Analyze this image and create a detailed prompt for generating a black and white line drawing coloring book page. Focus on the main subjects, their poses, setting, and key details that should be preserved but simplified for children to color. Describe it as a prompt for an AI image generator.";
+      // Resize to 1024px (optimal for GPT-4o) to keep tokens and cost down
+      const buffer = Buffer.from(imageBase64, 'base64');
+      const resizedBuffer = await sharp(buffer)
+        .resize({ width: 1024, withoutEnlargement: true })
+        .toBuffer();
 
-      const visionResponse = await openai.chat.completions.create({
+      const mimeType = mime.lookup('image') || mimetype || "image/jpeg";
+      const base64 = resizedBuffer.toString("base64");
+      const dataUrl = `data:${mimeType};base64,${base64}`;
+
+      // One single Chat Completions call with image_generation tool
+      const response = await openai.chat.completions.create({
         model: process.env.IMAGE_MODEL || "gpt-4o",
+        temperature: 0.2, // stay faithful to photo
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: analysisPrompt
+                text: "Create a black and white line drawing for a kids' coloring book " +
+                      "based on this photo. Keep the details simple and clean using clear " +
+                      "outlines, but preserve the recognizable features of the people, setting, " +
+                      "and background elements. Make it child-friendly and suitable for coloring, " +
+                      "similar to a cartoon or coloring book page."
               },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimetype};base64,${imageBase64}`
-                }
-              }
+              { type: "image_url", image_url: { url: dataUrl } }
             ]
           }
         ],
-        max_tokens: 300,
-        temperature: 0.2
+        tools: [
+          {
+            type: "image_generation",
+            parameters: {
+              style: "line-art",
+              size: "1024x1024",
+              quality: "standard"
+            }
+          }
+        ],
+        tool_choice: "auto"
       });
 
-      const imageDescription = visionResponse.choices[0].message.content;
-      
-      // Create a DALL-E prompt for a coloring book page
-      const dallePrompt = `Create a black and white line drawing for a children's coloring book based on this description: ${imageDescription}. Style: Simple line art, clean outlines, no shading, no filled areas, suitable for coloring with crayons or markers. The drawing should be child-friendly with clear, bold lines.`;
+      // The generated image URL is returned inside the tool call
+      const toolCall = response.choices[0].message.tool_calls?.[0];
+      const imageUrl = toolCall?.image_generation?.url;
 
-      // Use DALL-E to generate the coloring page
-      const imageResponse = await openai.images.generate({
-        model: "dall-e-3",
-        prompt: dallePrompt,
-        size: "1024x1024",
-        style: "natural",
-        quality: "standard",
-        response_format: "b64_json"
-      });
-
-      let generatedImageUrl = "";
-      if (imageResponse.data[0].b64_json) {
-        generatedImageUrl = `data:image/png;base64,${imageResponse.data[0].b64_json}`;
+      if (!imageUrl) {
+        throw new Error("Image generation failed - no URL returned");
       }
 
       // Update the request with the generated image
       await storage.updateColoringRequest(requestId, {
-        coloringPageUrl: generatedImageUrl,
-        status: generatedImageUrl ? "completed" : "failed"
+        coloringPageUrl: imageUrl,
+        status: "completed"
       });
 
     } catch (error) {
