@@ -12,6 +12,44 @@ interface UploadZoneProps {
 export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
+  const validateAndProcessFile = (file: File) => {
+    const supportedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    
+    if (!supportedFormats.includes(file.type)) {
+      // Try to convert HEIC and other unsupported formats
+      convertImageToJPEG(file);
+      return;
+    }
+    
+    onFileSelect(file);
+  };
+
+  const convertImageToJPEG = (file: File) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx?.drawImage(img, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const convertedFile = new File([blob], 'converted-image.jpg', { type: 'image/jpeg' });
+          onFileSelect(convertedFile);
+        }
+      }, 'image/jpeg', 0.9);
+    };
+    
+    img.onerror = () => {
+      console.error('Failed to convert image format');
+      alert('❌ This image format cannot be converted. Please try uploading a JPG, PNG, GIF, or WebP image instead.');
+    };
+    
+    img.src = URL.createObjectURL(file);
+  };
+
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -20,7 +58,9 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
     if (files.length > 0) {
       const file = files[0];
       if (file.type.startsWith('image/')) {
-        onFileSelect(file);
+        validateAndProcessFile(file);
+      } else {
+        alert('✨ Please upload an image file! We support JPG, PNG, GIF, and WebP formats.');
       }
     }
   }, [onFileSelect]);
@@ -38,7 +78,7 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      onFileSelect(files[0]);
+      validateAndProcessFile(files[0]);
     }
   }, [onFileSelect]);
 
@@ -49,7 +89,7 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
     input.onchange = (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (files && files.length > 0) {
-        onFileSelect(files[0]);
+        validateAndProcessFile(files[0]);
       }
     };
     input.click();
@@ -92,9 +132,14 @@ export default function UploadZone({ onFileSelect, isUploading }: UploadZoneProp
         <h3 className="font-fredoka text-xl text-magic-purple mb-2">
           {isUploading ? "Uploading..." : "Drop your photo here"}
         </h3>
-        <p className="font-inter text-gray-500 mb-4">
+        <p className="font-inter text-gray-500 mb-2">
           {isUploading ? "Please wait while we process your image" : "or click to browse your files"}
         </p>
+        {!isUploading && (
+          <p className="font-inter text-xs text-gray-400 mb-4">
+            Supports: JPG, PNG, GIF, WebP • We'll convert HEIC automatically ✨
+          </p>
+        )}
         {!isUploading && (
           <motion.button 
             className="magic-button text-white px-6 py-3 rounded-full font-inter font-medium"
