@@ -42,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Start background processing
-      processImageGeneration(coloringRequest.id, imageBase64);
+      processImageGeneration(coloringRequest.id, imageBase64, req.file.mimetype);
 
       res.json({ 
         id: coloringRequest.id,
@@ -74,45 +74,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Background function to process image generation
-  async function processImageGeneration(requestId: number, imageBase64: string) {
+  async function processImageGeneration(requestId: number, imageBase64: string, mimetype: string) {
     try {
-      // Use the Responses API with image generation tool - this mimics how ChatGPT works
-      // It can process both the uploaded image AND your text prompt together
-      const userPrompt = "Create a black and white line drawing for a kids' coloring book based on this photo. Keep the details simple and clean using clear outlines, but preserve the recognizable features of the people, setting, and background elements. Make it child-friendly and suitable for coloring, similar to a cartoon or coloring book page.";
+      // Use GPT-4o vision to analyze the image and create a detailed prompt for DALL-E
+      const analysisPrompt = "Analyze this image and create a detailed prompt for generating a black and white line drawing coloring book page. Focus on the main subjects, their poses, setting, and key details that should be preserved but simplified for children to color. Describe it as a prompt for an AI image generator.";
 
-      const response = await openai.responses.create({
-        model: "gpt-4.1-mini",
-        input: [
+      const visionResponse = await openai.chat.completions.create({
+        model: process.env.IMAGE_MODEL || "gpt-4o",
+        messages: [
           {
-            type: "text",
-            text: userPrompt
-          },
-          {
-            type: "image_url",
-            image_url: {
-              url: `data:image/jpeg;base64,${imageBase64}`
-            }
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: analysisPrompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimetype};base64,${imageBase64}`
+                }
+              }
+            ]
           }
         ],
-        tools: [{ type: "image_generation" }],
+        max_tokens: 300,
+        temperature: 0.2
       });
 
-      // Extract the generated image from the Responses API output
-      const imageData = response.output
-        .filter((output) => output.type === "image_generation_call")
-        .map((output) => output.result);
+      const imageDescription = visionResponse.choices[0].message.content;
+      
+      // Create a DALL-E prompt for a coloring book page
+      const dallePrompt = `Create a black and white line drawing for a children's coloring book based on this description: ${imageDescription}. Style: Simple line art, clean outlines, no shading, no filled areas, suitable for coloring with crayons or markers. The drawing should be child-friendly with clear, bold lines.`;
+
+      // Use DALL-E to generate the coloring page
+      const imageResponse = await openai.images.generate({
+        model: "dall-e-3",
+        prompt: dallePrompt,
+        size: "1024x1024",
+        style: "natural",
+        quality: "standard",
+        response_format: "b64_json"
+      });
 
       let generatedImageUrl = "";
-      if (imageData.length > 0) {
-        // Convert base64 to data URL for storage
-        const imageBase64 = imageData[0];
-        generatedImageUrl = `data:image/png;base64,${imageBase64}`;
+      if (imageResponse.data[0].b64_json) {
+        generatedImageUrl = `data:image/png;base64,${imageResponse.data[0].b64_json}`;
       }
 
       // Update the request with the generated image
       await storage.updateColoringRequest(requestId, {
         coloringPageUrl: generatedImageUrl,
-        status: "completed"
+        status: generatedImageUrl ? "completed" : "failed"
       });
 
     } catch (error) {
