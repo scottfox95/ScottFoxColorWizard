@@ -111,3 +111,15 @@ The application is designed for deployment on platforms that support Node.js wit
 | `IMAGE_MODEL` | `gpt-4o` | Controls which model the coloring-page route uses. **Do not** set to `dall-e-*` or `gpt-*-turbo`, as those follow a different API and will break the tool call. |
 
 The project now relies *only* on the Chat Completions endpoint and **never** on legacy `images.generate` or `completions` calls. If the agent later adds new routes, remind it to reuse this pattern.
+
+---
+## 🖼️  Coloring-Page Route (Responses API)
+
+* Uses `openai.responses.create` with the **built-in `image_generation` tool**, per  
+  <https://platform.openai.com/docs/guides/tools-image-generation>.
+* **Will not** call Chat-Completions, DALL·E, or any standalone Image API.
+* Model is chosen via the `IMAGE_MODEL` env var (default `gpt-4o`).
+
+| Env var        | Default  | Purpose                                                   |
+|--------------- |--------- |-----------------------------------------------------------|
+| `IMAGE_MODEL`  | gpt-4o   | Must be a model that lists `image_generation` in **Tools**|

@@ -2,31 +2,20 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { uploadSchema, insertColoringRequestSchema } from "@shared/schema";
-import OpenAI from "openai";
+import { Router } from "express";
 import multer from "multer";
-import mime from "mime-types";
 import sharp from "sharp";
+import mime from "mime-types";
+import OpenAI from "openai";
 
-// Extend Request type to include file property
-interface MulterRequest extends Request {
-  file?: Express.Multer.File;
-}
-
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
-});
-
-// Configure multer for memory storage
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
+const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
+const openai = new OpenAI();
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
+
   // Endpoint to upload image and generate coloring page
-  app.post("/api/generate-coloring-page", upload.single("image"), async (req: MulterRequest, res) => {
+  app.post("/api/generate-coloring-page", upload.single("image"), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No image file uploaded" });
@@ -44,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Start background processing
-      processImageGeneration(coloringRequest.id, imageBase64, req.file.mimetype);
+      processImageGeneration(coloringRequest.id, req.file.buffer, req.file.originalname);
 
       res.json({ 
         id: coloringRequest.id,
@@ -57,6 +46,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to process image upload" });
     }
   });
+
+  // Background function to process image generation using OpenAI Responses API
+  async function processImageGeneration(requestId: number, imageBuffer: Buffer, originalName: string) {
+    try {
+      /* Resize to 1024 px (docs recommend matching your output size) */
+      const resized = await sharp(imageBuffer)
+        .resize({ width: 1024, withoutEnlargement: true })
+        .png()                         // keep a clean, loss-free format
+        .toBuffer();
+
+      const mimeType = mime.lookup(originalName) || "image/png";
+      const dataUrl = `data:${mimeType};base64,${resized.toString("base64")}`;
+
+      /* One Responses-API call with the built-in image_generation tool */
+      const resp = await openai.responses.create({
+        model: process.env.IMAGE_MODEL || "gpt-4o",
+        tool_choice: { type: "image_generation" },   // force the call
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text:
+                  "Create a black and white line drawing for a kids' coloring book " +
+                  "based on this photo. Keep the details simple and clean using clear " +
+                  "outlines, but preserve the recognizable features of the people, " +
+                  "setting, and background elements. Make it child-friendly and suitable " +
+                  "for coloring, similar to a cartoon or coloring-book page."
+              },
+              {
+                type: "input_image",
+                image_url: dataUrl
+              }
+            ]
+          }
+        ],
+        tools: [{
+          type: "image_generation",
+          parameters: {
+            style: "line-art",
+            size: "1024x1024",
+            quality: "standard"
+          }
+        }],
+        temperature: 0.2
+      });
+
+      /* Extract the base64 PNG produced by the tool call */
+      const imageCall = resp.output.find(o => o.type === "image_generation_call");
+      if (!imageCall) {
+        throw new Error("Image generation failed - no result returned");
+      }
+
+      // Convert base64 result to data URL for storage
+      const coloringPageUrl = `data:image/png;base64,${imageCall.result}`;
+
+      // Update the request with the generated image
+      await storage.updateColoringRequest(requestId, {
+        coloringPageUrl: coloringPageUrl,
+        status: "completed"
+      });
+
+    } catch (error) {
+      console.error("Error generating coloring page:", error);
+      await storage.updateColoringRequest(requestId, {
+        status: "failed"
+      });
+    }
+  }
 
   // Endpoint to check generation status
   app.get("/api/coloring-request/:id", async (req, res) => {
@@ -74,74 +133,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch request status" });
     }
   });
-
-  // Background function to process image generation
-  async function processImageGeneration(requestId: number, imageBase64: string, mimetype: string) {
-    try {
-      // Resize to 1024px (optimal for GPT-4o) to keep tokens and cost down
-      const buffer = Buffer.from(imageBase64, 'base64');
-      const resizedBuffer = await sharp(buffer)
-        .resize({ width: 1024, withoutEnlargement: true })
-        .toBuffer();
-
-      const mimeType = mime.lookup('image') || mimetype || "image/jpeg";
-      const base64 = resizedBuffer.toString("base64");
-      const dataUrl = `data:${mimeType};base64,${base64}`;
-
-      // One single Chat Completions call with image_generation tool
-      const response = await openai.chat.completions.create({
-        model: process.env.IMAGE_MODEL || "gpt-4o",
-        temperature: 0.2, // stay faithful to photo
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Create a black and white line drawing for a kids' coloring book " +
-                      "based on this photo. Keep the details simple and clean using clear " +
-                      "outlines, but preserve the recognizable features of the people, setting, " +
-                      "and background elements. Make it child-friendly and suitable for coloring, " +
-                      "similar to a cartoon or coloring book page."
-              },
-              { type: "image_url", image_url: { url: dataUrl } }
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: "image_generation",
-            parameters: {
-              style: "line-art",
-              size: "1024x1024",
-              quality: "standard"
-            }
-          }
-        ],
-        tool_choice: "auto"
-      });
-
-      // The generated image URL is returned inside the tool call
-      const toolCall = response.choices[0].message.tool_calls?.[0];
-      const imageUrl = toolCall?.image_generation?.url;
-
-      if (!imageUrl) {
-        throw new Error("Image generation failed - no URL returned");
-      }
-
-      // Update the request with the generated image
-      await storage.updateColoringRequest(requestId, {
-        coloringPageUrl: imageUrl,
-        status: "completed"
-      });
-
-    } catch (error) {
-      console.error("Error generating coloring page:", error);
-      await storage.updateColoringRequest(requestId, {
-        status: "failed"
-      });
-    }
-  }
 
   const httpServer = createServer(app);
   return httpServer;
