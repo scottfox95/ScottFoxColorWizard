@@ -6,7 +6,10 @@ import mime         from "mime-types";
 import OpenAI       from "openai";
 
 const upload  = multer({ storage: multer.memoryStorage() });
-const openai  = new OpenAI();
+const openai  = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  organization: process.env.OPENAI_ORG_ID,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   /**
