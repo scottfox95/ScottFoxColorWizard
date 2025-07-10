@@ -59,15 +59,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mimeType = mime.lookup(originalName) || "image/png";
       const dataUrl = `data:${mimeType};base64,${resized.toString("base64")}`;
 
-      /* One Responses-API call with the built-in image_generation tool */
+      /* 2-B  One Responses-API call with the built-in image_generation tool */
       const resp = await openai.responses.create({
-        model: "gpt-4.1-mini",
+        model: process.env.IMAGE_MODEL || "gpt-4o",
+        tool_choice: { type: "image_generation" },   // force the call
         input: [
           {
             role: "user",
             content: [
               {
-                type: "text",
+                type: "input_text",
                 text: "Create a black and white line drawing for a kids' coloring book " +
                       "based on this photo. Keep the details simple and clean using clear " +
                       "outlines, but preserve the recognizable features of the people, " +
@@ -75,8 +76,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       "for coloring, similar to a cartoon or coloring-book page."
               },
               {
-                type: "image_url",
-                image_url: { url: dataUrl }
+                type: "input_image",
+                image_url: dataUrl
               }
             ]
           }
